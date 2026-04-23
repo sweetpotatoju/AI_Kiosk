@@ -11,6 +11,7 @@ class KioskState:
     greeted: bool = False
     last_detected_at: Optional[str] = None
     message_text: Optional[str] = None
+    user_text: Optional[str] = None
 
 
 class StateStore:
@@ -87,6 +88,15 @@ class StateStore:
         }
 
     def start_listening(self) -> dict:
+        if self._state.current_state == "LISTENING":
+            return {
+                "success": True,
+                "message": "already listening",
+                "state": self._state.current_state,
+                "session_id": self._state.session_id,
+                "message_text": self._state.message_text,
+            }
+
         if self._state.current_state != "GREETING":
             return {
                 "success": False,
@@ -105,6 +115,41 @@ class StateStore:
             "session_id": self._state.session_id,
             "message_text": self._state.message_text,
         }
+
+    def start_processing(self, user_text: str) -> dict:
+        if self._state.current_state != "LISTENING":
+            return {
+                "success": False,
+                "message": "not in listening state",
+                "state": self._state.current_state,
+            }
+        self._state.current_state = "PROCESSING"
+        self._state.user_text = user_text
+        self._state.message_text = "답변을 생각하는 중..."
+        return {"success": True, "state": self._state.current_state}
+
+    def start_responding(self, answer_text: str) -> dict:
+        if self._state.current_state != "PROCESSING":
+            return {
+                "success": False,
+                "message": "not in processing state",
+                "state": self._state.current_state,
+            }
+        self._state.current_state = "RESPONDING"
+        self._state.message_text = answer_text
+        return {"success": True, "state": self._state.current_state}
+
+    def back_to_listening(self) -> dict:
+        if self._state.current_state != "RESPONDING":
+            return {
+                "success": False,
+                "message": "not in responding state",
+                "state": self._state.current_state,
+            }
+        self._state.current_state = "LISTENING"
+        self._state.user_text = None
+        self._state.message_text = "말씀해주세요."
+        return {"success": True, "state": self._state.current_state}
 
     def touch_presence(self) -> None:
         """사람이 아직 존재한다고 판단될 때 시간만 갱신"""

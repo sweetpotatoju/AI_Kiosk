@@ -36,12 +36,32 @@
         #greetingMessage {
             font-size: 42px;
             font-weight: bold;
-            margin-bottom: 20px;
         }
 
         #listeningMessage {
             font-size: 36px;
             font-weight: bold;
+        }
+
+        #processingMessage {
+            font-size: 32px;
+            font-weight: bold;
+            color: #aad4f5;
+        }
+
+        #userTextDisplay {
+            font-size: 20px;
+            color: #999;
+            margin-top: 16px;
+        }
+
+        #respondingMessage {
+            font-size: 30px;
+            font-weight: bold;
+            line-height: 1.7;
+            max-width: 800px;
+            color: #a8f0c6;
+            white-space: pre-wrap;
         }
 
         #stateDebug {
@@ -60,8 +80,9 @@
             left: 20px;
             bottom: 20px;
             display: flex;
-            gap: 10px;
+            gap: 8px;
             flex-wrap: wrap;
+            max-width: 400px;
         }
 
         button {
@@ -70,6 +91,29 @@
             border-radius: 8px;
             cursor: pointer;
             font-size: 14px;
+        }
+
+        #chatInputArea {
+            position: fixed;
+            left: 20px;
+            bottom: 70px;
+            display: flex;
+            gap: 8px;
+        }
+
+        #chatInput {
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            font-size: 14px;
+            width: 220px;
+            background: #222;
+            color: white;
+        }
+
+        #chatSendBtn {
+            background: #4caf50;
+            color: white;
         }
     </style>
 </head>
@@ -93,13 +137,32 @@
     <!-- 듣기 화면 -->
     <div id="listeningScreen" class="screen">
         <h1>AI 키오스크</h1>
-        <div id="listeningMessage">말씀해주세요.</div>
+        <div id="listeningMessage">🎙 말씀해주세요.</div>
+    </div>
+
+    <!-- 처리 화면 -->
+    <div id="processingScreen" class="screen">
+        <h1>AI 키오스크</h1>
+        <div id="processingMessage">⏳ 답변을 생각하는 중...</div>
+        <div id="userTextDisplay"></div>
+    </div>
+
+    <!-- 응답 화면 -->
+    <div id="respondingScreen" class="screen">
+        <h1>AI 키오스크</h1>
+        <div id="respondingMessage"></div>
     </div>
 
     <!-- 상태 디버그 -->
     <div id="stateDebug">
         <div><strong>현재 상태:</strong> <span id="stateText">Loading...</span></div>
         <div><strong>세션:</strong> <span id="sessionText">-</span></div>
+    </div>
+
+    <!-- 텍스트 직접 입력 (테스트용) -->
+    <div id="chatInputArea">
+        <input id="chatInput" type="text" placeholder="테스트 발화 입력..." />
+        <button id="chatSendBtn" onclick="sendChat()">전송</button>
     </div>
 
     <!-- 디버그 버튼 -->
@@ -112,12 +175,9 @@
 
     <script>
         let lastState = null;
-        let greetingAutoMoved = false;
 
         function showScreen(screenId) {
-            document.querySelectorAll('.screen').forEach(el => {
-                el.classList.remove('active');
-            });
+            document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
             document.getElementById(screenId).classList.add('active');
         }
 
@@ -137,30 +197,42 @@
 
         function handleStateChange(state, data) {
             if (state === 'IDLE') {
-                greetingAutoMoved = false;
                 showScreen('adScreen');
             } else if (state === 'USER_DETECTED') {
-                // 필요하면 로딩/전환 화면 추가 가능
                 showScreen('adScreen');
             } else if (state === 'GREETING') {
+                document.getElementById('greetingMessage').innerText =
+                    data.message_text || '안녕하세요. 무엇을 도와드릴까요?';
                 showScreen('greetingScreen');
-
-                // 인사 문구를 백엔드에서 state에 포함시키지 않았다면 기본값 사용
-                const greetingText = data.message_text || '안녕하세요. 무엇을 도와드릴까요?';
-                document.getElementById('greetingMessage').innerText = greetingText;
-
-                // 인사 끝났다고 가정하고 2초 뒤 LISTENING 전환
-                if (!greetingAutoMoved) {
-                    greetingAutoMoved = true;
-                    setTimeout(async () => {
-                        await fetch('/api/listening', { method: 'POST' });
-                        fetchState();
-                    }, 2000);
-                }
             } else if (state === 'LISTENING') {
                 showScreen('listeningScreen');
+            } else if (state === 'PROCESSING') {
+                document.getElementById('userTextDisplay').innerText =
+                    data.user_text ? `"${data.user_text}"` : '';
+                showScreen('processingScreen');
+            } else if (state === 'RESPONDING') {
+                document.getElementById('respondingMessage').innerText =
+                    data.message_text || '';
+                showScreen('respondingScreen');
             }
         }
+
+        async function sendChat() {
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            if (!text) return;
+            input.value = '';
+            await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+            fetchState();
+        }
+
+        document.getElementById('chatInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') sendChat();
+        });
 
         async function sendDetection() {
             await fetch('/api/detection', {

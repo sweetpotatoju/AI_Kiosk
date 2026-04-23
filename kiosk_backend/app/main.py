@@ -1,15 +1,16 @@
 from fastapi import FastAPI
-from app.api.routes import state, session,greeting,listening
 from fastapi.responses import FileResponse
 from pathlib import Path
+from contextlib import asynccontextmanager
 
 import app.api.routes.state as state
 import app.api.routes.session as session
 import app.api.routes.greeting as greeting
 import app.api.routes.listening as listening
-from contextlib import asynccontextmanager  # ⭐ 이거 추가
+import app.api.routes.chat as chat
 
 from app.services.camera_detection_service import camera_detection_service
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -26,10 +27,13 @@ app.include_router(state.router, prefix="/api")
 app.include_router(session.router, prefix="/api")
 app.include_router(greeting.router, prefix="/api")
 app.include_router(listening.router, prefix="/api")
+app.include_router(chat.router, prefix="/api")
+
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok"} 
+    return {"status": "ok"}
+
 
 @app.get("/ui")
 def ui():

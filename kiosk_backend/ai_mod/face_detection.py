@@ -4,11 +4,17 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
-from config import (
+from ai_mod.config import (
     MODEL_PATH,
     MIN_DETECTION_CONFIDENCE,
     MIN_SUPPRESSION_THRESHOLD,
 )
+
+# from config import (
+#     MODEL_PATH,
+#     MIN_DETECTION_CONFIDENCE,
+#     MIN_SUPPRESSION_THRESHOLD,
+# )
 
 HOLD_SECONDS = 1.0
 NO_FACE_TIMEOUT_SECONDS = 3.0

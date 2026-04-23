@@ -1,0 +1,19 @@
+# PyCharm
+.idea/
+*.iml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual env
+venv/
+.env/
+.venv/
+.vscode/
+
+# OS
+.DS_Store
+.CLAUDE.md

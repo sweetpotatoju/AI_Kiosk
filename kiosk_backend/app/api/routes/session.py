@@ -1,8 +1,8 @@
 from fastapi import APIRouter
-from app.services.detection_service import reset_state
+from app.core.state_store import state_store
 
 router = APIRouter()
 
 @router.post("/session/reset")
 def reset_session():
-    return reset_state()
+    return state_store.reset()

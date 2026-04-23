@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <title>AI Kiosk UI</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #111;
+            color: white;
+            text-align: center;
+        }
+
+        .screen {
+            display: none;
+            width: 100vw;
+            height: 100vh;
+            box-sizing: border-box;
+            padding: 40px;
+        }
+
+        .active {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #adScreen video {
+            width: 80%;
+            max-width: 900px;
+            border-radius: 16px;
+        }
+
+        #greetingMessage {
+            font-size: 42px;
+            font-weight: bold;
+        }
+
+        #listeningMessage {
+            font-size: 36px;
+            font-weight: bold;
+        }
+
+        #processingMessage {
+            font-size: 32px;
+            font-weight: bold;
+            color: #aad4f5;
+        }
+
+        #userTextDisplay {
+            font-size: 20px;
+            color: #999;
+            margin-top: 16px;
+        }
+
+        #respondingMessage {
+            font-size: 30px;
+            font-weight: bold;
+            line-height: 1.7;
+            max-width: 800px;
+            color: #a8f0c6;
+            white-space: pre-wrap;
+        }
+
+        #stateDebug {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            background: rgba(0,0,0,0.6);
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            text-align: left;
+        }
+
+        .debug-buttons {
+            position: fixed;
+            left: 20px;
+            bottom: 20px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            max-width: 400px;
+        }
+
+        button {
+            padding: 10px 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        #chatInputArea {
+            position: fixed;
+            left: 20px;
+            bottom: 70px;
+            display: flex;
+            gap: 8px;
+        }
+
+        #chatInput {
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            font-size: 14px;
+            width: 220px;
+            background: #222;
+            color: white;
+        }
+
+        #chatSendBtn {
+            background: #4caf50;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 광고 화면 -->
+    <div id="adScreen" class="screen active">
+        <h1>광고/대기 화면</h1>
+        <video id="adVideo" autoplay muted loop playsinline>
+            <source src="/static/ad.mp4" type="video/mp4">
+            브라우저가 video 태그를 지원하지 않습니다.
+        </video>
+    </div>
+
+    <!-- 인사 화면 -->
+    <div id="greetingScreen" class="screen">
+        <h1>AI 키오스크</h1>
+        <div id="greetingMessage">안녕하세요. 무엇을 도와드릴까요?</div>
+    </div>
+
+    <!-- 듣기 화면 -->
+    <div id="listeningScreen" class="screen">
+        <h1>AI 키오스크</h1>
+        <div id="listeningMessage">🎙 말씀해주세요.</div>
+    </div>
+
+    <!-- 처리 화면 -->
+    <div id="processingScreen" class="screen">
+        <h1>AI 키오스크</h1>
+        <div id="processingMessage">⏳ 답변을 생각하는 중...</div>
+        <div id="userTextDisplay"></div>
+    </div>
+
+    <!-- 응답 화면 -->
+    <div id="respondingScreen" class="screen">
+        <h1>AI 키오스크</h1>
+        <div id="respondingMessage"></div>
+    </div>
+
+    <!-- 상태 디버그 -->
+    <div id="stateDebug">
+        <div><strong>현재 상태:</strong> <span id="stateText">Loading...</span></div>
+        <div><strong>세션:</strong> <span id="sessionText">-</span></div>
+    </div>
+
+    <!-- 텍스트 직접 입력 (테스트용) -->
+    <div id="chatInputArea">
+        <input id="chatInput" type="text" placeholder="테스트 발화 입력..." />
+        <button id="chatSendBtn" onclick="sendChat()">전송</button>
+    </div>
+
+    <!-- 디버그 버튼 -->
+    <div class="debug-buttons">
+        <button onclick="sendDetection()">사람 감지</button>
+        <button onclick="startGreeting()">인사 시작</button>
+        <button onclick="startListening()">Listening</button>
+        <button onclick="resetSession()">Reset</button>
+    </div>
+
+    <script>
+        let lastState = null;
+
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        async function fetchState() {
+            const res = await fetch('/api/state');
+            const data = await res.json();
+
+            const currentState = data.current_state;
+            document.getElementById('stateText').innerText = currentState || '-';
+            document.getElementById('sessionText').innerText = data.session_id || '-';
+
+            if (currentState !== lastState) {
+                handleStateChange(currentState, data);
+                lastState = currentState;
+            }
+        }
+
+        function handleStateChange(state, data) {
+            if (state === 'IDLE') {
+                showScreen('adScreen');
+            } else if (state === 'USER_DETECTED') {
+                showScreen('adScreen');
+            } else if (state === 'GREETING') {
+                document.getElementById('greetingMessage').innerText =
+                    data.message_text || '안녕하세요. 무엇을 도와드릴까요?';
+                showScreen('greetingScreen');
+            } else if (state === 'LISTENING') {
+                showScreen('listeningScreen');
+            } else if (state === 'PROCESSING') {
+                document.getElementById('userTextDisplay').innerText =
+                    data.user_text ? `"${data.user_text}"` : '';
+                showScreen('processingScreen');
+            } else if (state === 'RESPONDING') {
+                document.getElementById('respondingMessage').innerText =
+                    data.message_text || '';
+                showScreen('respondingScreen');
+            }
+        }
+
+        async function sendChat() {
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            if (!text) return;
+            input.value = '';
+            await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+            fetchState();
+        }
+
+        document.getElementById('chatInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') sendChat();
+        });
+
+        async function sendDetection() {
+            await fetch('/api/detection', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ detected: true })
+            });
+            fetchState();
+        }
+
+        async function startGreeting() {
+            await fetch('/api/greeting', { method: 'POST' });
+            fetchState();
+        }
+
+        async function startListening() {
+            await fetch('/api/listening', { method: 'POST' });
+            fetchState();
+        }
+
+        async function resetSession() {
+            await fetch('/api/session/reset', { method: 'POST' });
+            fetchState();
+        }
+
+        setInterval(fetchState, 500);
+        fetchState();
+    </script>
+
+</body>
+</html>
